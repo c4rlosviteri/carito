@@ -6,12 +6,36 @@ import { toast } from 'sonner'
 import { addGlucoseReading } from '@/app/actions'
 import { useSWRConfig } from 'swr'
 import exifr from 'exifr'
+import { extractGlucoseValue } from '@/lib/glucose-vision'
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const maxSide = 800
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, w, h)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+      resolve(dataUrl.split(',')[1])
+      URL.revokeObjectURL(img.src)
+    }
+    img.onerror = reject
+    img.src = URL.createObjectURL(file)
+  })
+}
 
 export function CaptureForm() {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [extractedDate, setExtractedDate] = useState<string>('')
   const [glucoseValue, setGlucoseValue] = useState('')
+  const [detectedValue, setDetectedValue] = useState<number | null>(null)
+  const [showDetectedConfirmation, setShowDetectedConfirmation] = useState(false)
   const [notes, setNotes] = useState('')
   const [isPending, startTransition] = useTransition()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -55,20 +79,47 @@ export function CaptureForm() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    setPhotoFile(file)
     const reader = new FileReader()
     reader.onloadend = () => setImagePreview(reader.result as string)
     reader.readAsDataURL(file)
 
-    await extractExifDate(file)
+    const base64 = await fileToBase64(file)
+
+    const [, detectedValue] = await Promise.all([
+      extractExifDate(file),
+      extractGlucoseValue(base64, 'image/jpeg'),
+    ])
+
+    if (typeof detectedValue === 'number') {
+      setDetectedValue(detectedValue)
+      setShowDetectedConfirmation(true)
+      toast.success(`Valor detectado: ${detectedValue} mg/dL. Confirma antes de guardar.`)
+    } else {
+      setDetectedValue(null)
+      setShowDetectedConfirmation(false)
+      toast.info('No se pudo detectar automaticamente el valor. Puedes ingresarlo manualmente.')
+    }
   }
 
   function clearImage() {
     setImagePreview(null)
-    setPhotoFile(null)
     setExtractedDate('')
+    setDetectedValue(null)
+    setShowDetectedConfirmation(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
     if (cameraInputRef.current) cameraInputRef.current.value = ''
+  }
+
+  function applyDetectedValue() {
+    if (typeof detectedValue !== 'number') return
+    setGlucoseValue(String(detectedValue))
+    setShowDetectedConfirmation(false)
+    toast.success(`Valor confirmado: ${detectedValue} mg/dL`)
+  }
+
+  function rejectDetectedValue() {
+    setShowDetectedConfirmation(false)
+    toast.info('Valor detectado descartado. Ingresa el valor manualmente.')
   }
 
   function handleSubmit() {
@@ -82,7 +133,6 @@ export function CaptureForm() {
       formData.append('glucose_value', glucoseValue)
       formData.append('measured_at', extractedDate || new Date().toISOString())
       if (notes) formData.append('notes', notes)
-      if (photoFile) formData.append('photo', photoFile)
 
       const result = await addGlucoseReading(formData)
 
@@ -169,11 +219,39 @@ export function CaptureForm() {
           inputMode="numeric"
           placeholder="ej: 96"
           value={glucoseValue}
-          onChange={(e) => setGlucoseValue(e.target.value)}
+          onChange={(e) => {
+            setGlucoseValue(e.target.value)
+            if (showDetectedConfirmation) {
+              setShowDetectedConfirmation(false)
+            }
+          }}
           className="w-full rounded-lg border border-input bg-background px-4 py-3 text-2xl font-bold text-card-foreground placeholder:text-muted-foreground/50 placeholder:text-lg placeholder:font-normal focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
           min="20"
           max="600"
         />
+        {showDetectedConfirmation && typeof detectedValue === 'number' && (
+          <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+            <p className="text-xs text-card-foreground">
+              Valor detectado: <span className="font-semibold">{detectedValue} mg/dL</span>
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={applyDetectedValue}
+                className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+              >
+                Usar valor detectado
+              </button>
+              <button
+                type="button"
+                onClick={rejectDetectedValue}
+                className="rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground"
+              >
+                No es correcto
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Extracted date */}

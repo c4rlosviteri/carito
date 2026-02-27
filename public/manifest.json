@@ -9,9 +9,9 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/carito.webp",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/webp"
     }
   ]
 }

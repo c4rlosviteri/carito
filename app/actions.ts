@@ -2,44 +2,29 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidateTag } from 'next/cache'
+import { cookies } from 'next/headers'
+import { ACCESS_COOKIE_NAME, hasValidAccessToken } from '@/lib/access-control'
+
+async function ensureAuthorized(): Promise<boolean> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(ACCESS_COOKIE_NAME)?.value
+  return hasValidAccessToken(token)
+}
 
 export async function addGlucoseReading(formData: FormData) {
   try {
+    if (!(await ensureAuthorized())) {
+      return { error: 'No autorizado' }
+    }
+
     const supabase = await createClient()
     const glucoseValue = Number.parseInt(String(formData.get('glucose_value') ?? ''), 10)
     const measuredAt = String(formData.get('measured_at') ?? '')
     const notesRaw = String(formData.get('notes') ?? '').trim()
     const notes = notesRaw.length > 0 ? notesRaw : null
-    const photo = formData.get('photo')
-    const photoFile = photo instanceof File ? photo : null
 
     if (!Number.isFinite(glucoseValue) || glucoseValue <= 0) {
       return { error: 'Valor de glucosa invalido' }
-    }
-
-    let photoUrl: string | null = null
-
-    if (photoFile && photoFile.size > 0) {
-      const fileExt = photoFile.name.split('.').pop() || 'jpg'
-      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('glucose-photos')
-        .upload(fileName, photoFile, {
-          cacheControl: '3600',
-          upsert: false,
-        })
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError)
-        return { error: 'Error al subir la foto' }
-      }
-
-      const { data: urlData } = supabase.storage
-        .from('glucose-photos')
-        .getPublicUrl(fileName)
-
-      photoUrl = urlData.publicUrl
     }
 
     const measuredAtDate = measuredAt ? new Date(measuredAt) : new Date()
@@ -50,7 +35,7 @@ export async function addGlucoseReading(formData: FormData) {
       measured_at: Number.isNaN(measuredAtDate.getTime())
         ? new Date().toISOString()
         : measuredAtDate.toISOString(),
-      photo_url: photoUrl,
+      photo_url: null,
       notes,
     })
 
@@ -69,20 +54,11 @@ export async function addGlucoseReading(formData: FormData) {
 
 export async function deleteGlucoseReading(id: string) {
   try {
-    const supabase = await createClient()
-
-    const { data: reading } = await supabase
-      .from('glucose_readings')
-      .select('photo_url')
-      .eq('id', id)
-      .single()
-
-    if (reading?.photo_url) {
-      const fileName = reading.photo_url.split('/').pop()
-      if (fileName) {
-        await supabase.storage.from('glucose-photos').remove([fileName])
-      }
+    if (!(await ensureAuthorized())) {
+      return { error: 'No autorizado' }
     }
+
+    const supabase = await createClient()
 
     const { error } = await supabase
       .from('glucose_readings')

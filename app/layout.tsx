@@ -12,21 +12,8 @@ export const metadata: Metadata = {
   description: 'Registro fotografico de lecturas de glucosa con extraccion de metadatos EXIF',
   manifest: '/manifest.json',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/carito.webp',
+    apple: '/carito.webp',
   },
 }
 

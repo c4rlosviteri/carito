@@ -4,11 +4,27 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidateTag } from 'next/cache'
 import { cookies } from 'next/headers'
 import { ACCESS_COOKIE_NAME, hasValidAccessToken } from '@/lib/access-control'
+import { parseGuayaquilLocalInputToIso } from '@/lib/guayaquil-time'
 
 async function ensureAuthorized(): Promise<boolean> {
   const cookieStore = await cookies()
   const token = cookieStore.get(ACCESS_COOKIE_NAME)?.value
   return hasValidAccessToken(token)
+}
+
+function normalizeMeasuredAt(value: string): string {
+  const trimmedValue = value.trim()
+  if (!trimmedValue) return new Date().toISOString()
+
+  const guayaquilIso = parseGuayaquilLocalInputToIso(trimmedValue)
+  if (guayaquilIso) return guayaquilIso
+
+  const parsedDate = new Date(trimmedValue)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return new Date().toISOString()
+  }
+
+  return parsedDate.toISOString()
 }
 
 export async function addGlucoseReading(formData: FormData) {
@@ -27,14 +43,10 @@ export async function addGlucoseReading(formData: FormData) {
       return { error: 'Valor de glucosa invalido' }
     }
 
-    const measuredAtDate = measuredAt ? new Date(measuredAt) : new Date()
-
     const { error } = await supabase.from('glucose_readings').insert({
       glucose_value: glucoseValue,
       unit: 'mg/dL',
-      measured_at: Number.isNaN(measuredAtDate.getTime())
-        ? new Date().toISOString()
-        : measuredAtDate.toISOString(),
+      measured_at: normalizeMeasuredAt(measuredAt),
       photo_url: null,
       notes,
     })

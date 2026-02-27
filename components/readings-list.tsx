@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 import { Trash2, ImageIcon, ChevronDown, ChevronUp, StickyNote } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSWRConfig } from 'swr'
@@ -13,6 +11,13 @@ import {
   getStatusColor,
   type GlucoseReading,
 } from '@/lib/types'
+import {
+  formatGuayaquilDayLabel,
+  formatGuayaquilMonthLabel,
+  formatGuayaquilTime,
+  guayaquilDayKey,
+  guayaquilMonthKey,
+} from '@/lib/guayaquil-time'
 
 interface ReadingsListProps {
   readings: GlucoseReading[]
@@ -32,12 +37,6 @@ interface MonthGroup {
   totalReadings: number
 }
 
-function capitalize(value: string): string {
-  return value.length > 0
-    ? `${value[0].toUpperCase()}${value.slice(1)}`
-    : value
-}
-
 function groupReadingsByMonthAndDay(readings: GlucoseReading[]): MonthGroup[] {
   const sortedReadings = [...readings].sort(
     (a, b) => new Date(b.measured_at).getTime() - new Date(a.measured_at).getTime()
@@ -50,12 +49,12 @@ function groupReadingsByMonthAndDay(readings: GlucoseReading[]): MonthGroup[] {
 
   for (const reading of sortedReadings) {
     const date = new Date(reading.measured_at)
-    const monthKey = format(date, 'yyyy-MM')
-    const dayKey = format(date, 'yyyy-MM-dd')
+    const monthKey = guayaquilMonthKey(date)
+    const dayKey = guayaquilDayKey(date)
 
     if (!monthMap.has(monthKey)) {
       monthMap.set(monthKey, {
-        monthLabel: capitalize(format(date, "MMMM 'de' yyyy", { locale: es })),
+        monthLabel: formatGuayaquilMonthLabel(date),
         dayMap: new Map<string, DayGroup>(),
       })
     }
@@ -66,7 +65,7 @@ function groupReadingsByMonthAndDay(readings: GlucoseReading[]): MonthGroup[] {
     if (!monthGroup.dayMap.has(dayKey)) {
       monthGroup.dayMap.set(dayKey, {
         dayKey,
-        dayLabel: capitalize(format(date, "EEEE d", { locale: es })),
+        dayLabel: formatGuayaquilDayLabel(date),
         readings: [],
       })
     }
@@ -182,7 +181,7 @@ export function ReadingsList({ readings, canEdit }: ReadingsListProps) {
                               {statusLabel}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {format(new Date(reading.measured_at), 'HH:mm')}
+                              {formatGuayaquilTime(reading.measured_at)}
                             </p>
                             {reading.notes && (
                               <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground/80">

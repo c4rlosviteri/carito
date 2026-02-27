@@ -7,6 +7,11 @@ import { addGlucoseReading } from '@/app/actions'
 import { useSWRConfig } from 'swr'
 import exifr from 'exifr'
 import { extractGlucoseValue } from '@/lib/glucose-vision'
+import {
+  guayaquilNowLocalInput,
+  parseGuayaquilLocalInputToIso,
+  toGuayaquilLocalInput,
+} from '@/lib/guayaquil-time'
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -50,9 +55,7 @@ export function CaptureForm() {
         if (dateValue) {
           const d = new Date(dateValue)
           if (!isNaN(d.getTime())) {
-            const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-              .toISOString()
-              .slice(0, 16)
+            const localIso = toGuayaquilLocalInput(d)
             setExtractedDate(localIso)
             toast.success('Fecha extraida de los metadatos de la imagen')
             return
@@ -68,11 +71,7 @@ export function CaptureForm() {
   }
 
   function setFallbackDate() {
-    const now = new Date()
-    const localIso = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16)
-    setExtractedDate(localIso)
+    setExtractedDate(guayaquilNowLocalInput())
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -129,9 +128,13 @@ export function CaptureForm() {
     }
 
     startTransition(async () => {
+      const measuredAtIso = extractedDate
+        ? (parseGuayaquilLocalInputToIso(extractedDate) ?? new Date().toISOString())
+        : new Date().toISOString()
+
       const formData = new FormData()
       formData.append('glucose_value', glucoseValue)
-      formData.append('measured_at', extractedDate || new Date().toISOString())
+      formData.append('measured_at', measuredAtIso)
       if (notes) formData.append('notes', notes)
 
       const result = await addGlucoseReading(formData)

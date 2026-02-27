@@ -10,9 +10,11 @@ import {
   Tooltip,
   ReferenceLine,
 } from 'recharts'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 import type { GlucoseReading } from '@/lib/types'
+import {
+  formatGuayaquilChartLabel,
+  formatGuayaquilFullLabel,
+} from '@/lib/guayaquil-time'
 
 interface GlucoseChartProps {
   readings: GlucoseReading[]
@@ -33,9 +35,9 @@ export function GlucoseChart({ readings }: GlucoseChartProps) {
   const chartData = [...readings]
     .reverse()
     .map((r) => ({
-      date: format(new Date(r.measured_at), 'dd MMM HH:mm', { locale: es }),
+      date: formatGuayaquilChartLabel(r.measured_at),
       value: r.glucose_value,
-      fullDate: format(new Date(r.measured_at), "dd 'de' MMMM, HH:mm", { locale: es }),
+      fullDate: formatGuayaquilFullLabel(r.measured_at),
     }))
 
   return (

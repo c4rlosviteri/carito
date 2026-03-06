@@ -145,3 +145,54 @@ export function formatGuayaquilFullLabel(value: DateInput): string {
   if (!parts) return ''
   return `${parts.day} de ${parts.month}, ${parts.hour}:${parts.minute}`
 }
+
+// Converts a UTC Date to its Guayaquil "local" equivalent as a UTC Date
+// (i.e. shifts the timestamp by -5h so UTC methods return local values)
+function toGuayaquilLocalDate(utc: Date): Date {
+  return new Date(utc.getTime() - 5 * 60 * 60 * 1000)
+}
+
+// Inverse: treats a "local" Date (shifted) back to UTC
+function fromGuayaquilLocalDate(local: Date): Date {
+  return new Date(local.getTime() + 5 * 60 * 60 * 1000)
+}
+
+export function getGuayaquilWeekBounds(offsetWeeks: number): { start: Date; end: Date } {
+  const nowLocal = toGuayaquilLocalDate(new Date())
+  const dow = nowLocal.getUTCDay() // 0=Sun, 1=Mon, ...
+  const daysToMonday = dow === 0 ? -6 : 1 - dow
+
+  const mondayLocal = new Date(nowLocal)
+  mondayLocal.setUTCDate(nowLocal.getUTCDate() + daysToMonday + offsetWeeks * 7)
+  mondayLocal.setUTCHours(0, 0, 0, 0)
+
+  const sundayLocal = new Date(mondayLocal)
+  sundayLocal.setUTCDate(mondayLocal.getUTCDate() + 6)
+  sundayLocal.setUTCHours(23, 59, 59, 999)
+
+  return {
+    start: fromGuayaquilLocalDate(mondayLocal),
+    end: fromGuayaquilLocalDate(sundayLocal),
+  }
+}
+
+export function getGuayaquilMonthBounds(offsetMonths: number): { start: Date; end: Date } {
+  const nowLocal = toGuayaquilLocalDate(new Date())
+  const year = nowLocal.getUTCFullYear()
+  const month = nowLocal.getUTCMonth() + offsetMonths
+
+  const startLocal = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0))
+  const endLocal = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999))
+
+  return {
+    start: fromGuayaquilLocalDate(startLocal),
+    end: fromGuayaquilLocalDate(endLocal),
+  }
+}
+
+export function formatGuayaquilWeekRangeLabel(start: Date, end: Date): string {
+  const startParts = getParts(start, { day: '2-digit', month: 'short' })
+  const endParts = getParts(end, { day: '2-digit', month: 'short', year: 'numeric' })
+  if (!startParts || !endParts) return ''
+  return `${startParts.day} ${startParts.month} – ${endParts.day} ${endParts.month} ${endParts.year}`
+}

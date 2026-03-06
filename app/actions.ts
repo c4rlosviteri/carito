@@ -64,6 +64,43 @@ export async function addGlucoseReading(formData: FormData) {
   }
 }
 
+export async function updateGlucoseReading(id: string, formData: FormData) {
+  try {
+    if (!(await ensureAuthorized())) {
+      return { error: 'No autorizado' }
+    }
+
+    const supabase = await createClient()
+    const glucoseValue = Number.parseInt(String(formData.get('glucose_value') ?? ''), 10)
+    const measuredAt = String(formData.get('measured_at') ?? '')
+    const notesRaw = String(formData.get('notes') ?? '').trim()
+    const notes = notesRaw.length > 0 ? notesRaw : null
+
+    if (!Number.isFinite(glucoseValue) || glucoseValue <= 0) {
+      return { error: 'Valor de glucosa invalido' }
+    }
+
+    const { error } = await supabase
+      .from('glucose_readings')
+      .update({
+        glucose_value: glucoseValue,
+        measured_at: normalizeMeasuredAt(measuredAt),
+        notes,
+      })
+      .eq('id', id)
+
+    if (error) {
+      return { error: 'Error al actualizar la lectura' }
+    }
+
+    revalidateTag('glucose-readings', 'max')
+    return { success: true }
+  } catch (error) {
+    console.error('updateGlucoseReading unexpected error:', error)
+    return { error: 'No se pudo actualizar la lectura.' }
+  }
+}
+
 export async function deleteGlucoseReading(id: string) {
   try {
     if (!(await ensureAuthorized())) {

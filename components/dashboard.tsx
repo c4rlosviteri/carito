@@ -27,7 +27,7 @@ interface DashboardProps {
 
 export function Dashboard({ canEdit }: DashboardProps) {
   const { data, error, isLoading } = useSWR<GlucoseReading[]>(
-    '/api/readings',
+    '/api/readings?limit=500',
     fetcher,
     { refreshInterval: 30000 }
   )

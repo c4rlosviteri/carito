@@ -146,7 +146,7 @@ export function CaptureForm() {
         setGlucoseValue('')
         setNotes('')
         clearImage()
-        mutate('/api/readings')
+        mutate('/api/readings?limit=500')
       }
     })
   }

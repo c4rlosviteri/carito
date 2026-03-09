@@ -83,7 +83,7 @@ export async function updateGlucoseReading(
       return { error: 'Valor de glucosa invalido' }
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('glucose_readings')
       .update({
         glucose_value: glucoseValue,
@@ -91,9 +91,15 @@ export async function updateGlucoseReading(
         notes,
       })
       .eq('id', id)
+      .select()
 
     if (error) {
+      console.error('Update error:', error)
       return { error: 'Error al actualizar la lectura' }
+    }
+
+    if (!data || data.length === 0) {
+      return { error: 'No se pudo actualizar. Revisa los permisos de la base de datos (RLS UPDATE policy).' }
     }
 
     revalidateTag('glucose-readings', 'max')

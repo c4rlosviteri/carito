@@ -108,20 +108,23 @@ function EditForm({ reading, onSave, onCancel }: EditFormProps) {
   const [glucoseValue, setGlucoseValue] = useState(String(reading.glucose_value))
   const [measuredAt, setMeasuredAt] = useState(toGuayaquilLocalInput(reading.measured_at))
   const [notes, setNotes] = useState(reading.notes ?? '')
-  const [isPending, startTransition] = useTransition()
+  const [isPending, setIsPending] = useState(false)
   const { mutate } = useSWRConfig()
 
-  function handleSave() {
-    startTransition(async () => {
+  async function handleSave() {
+    setIsPending(true)
+    try {
       const result = await updateGlucoseReading(reading.id, glucoseValue, measuredAt, notes)
       if (result.error) {
         toast.error(result.error)
       } else {
         toast.success('Lectura actualizada')
-        mutate('/api/readings?limit=500')
+        await mutate('/api/readings?limit=500')
         onSave()
       }
-    })
+    } finally {
+      setIsPending(false)
+    }
   }
 
   return (

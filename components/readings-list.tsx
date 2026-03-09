@@ -113,11 +113,7 @@ function EditForm({ reading, onSave, onCancel }: EditFormProps) {
 
   function handleSave() {
     startTransition(async () => {
-      const formData = new FormData()
-      formData.append('glucose_value', glucoseValue)
-      formData.append('measured_at', measuredAt)
-      formData.append('notes', notes)
-      const result = await updateGlucoseReading(reading.id, formData)
+      const result = await updateGlucoseReading(reading.id, glucoseValue, measuredAt, notes)
       if (result.error) {
         toast.error(result.error)
       } else {

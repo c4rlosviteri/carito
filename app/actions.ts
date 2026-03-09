@@ -64,17 +64,20 @@ export async function addGlucoseReading(formData: FormData) {
   }
 }
 
-export async function updateGlucoseReading(id: string, formData: FormData) {
+export async function updateGlucoseReading(
+  id: string,
+  glucoseValueRaw: string,
+  measuredAt: string,
+  notesRaw: string
+) {
   try {
     if (!(await ensureAuthorized())) {
       return { error: 'No autorizado' }
     }
 
     const supabase = await createClient()
-    const glucoseValue = Number.parseInt(String(formData.get('glucose_value') ?? ''), 10)
-    const measuredAt = String(formData.get('measured_at') ?? '')
-    const notesRaw = String(formData.get('notes') ?? '').trim()
-    const notes = notesRaw.length > 0 ? notesRaw : null
+    const glucoseValue = Number.parseInt(glucoseValueRaw, 10)
+    const notes = notesRaw.trim().length > 0 ? notesRaw.trim() : null
 
     if (!Number.isFinite(glucoseValue) || glucoseValue <= 0) {
       return { error: 'Valor de glucosa invalido' }
